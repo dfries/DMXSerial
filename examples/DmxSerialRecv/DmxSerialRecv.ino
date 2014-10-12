@@ -24,28 +24,27 @@
 struct Channel {
   // output pin
   uint8_t pin;
-  // initial value output when in setup
-  uint8_t setup;
+  // initial value and cache of last written value
+  uint8_t value;
   // value to use when no messages have been received
   uint8_t idle;
-  // written value
-  uint8_t value;
 };
 
 Channel channel[] = {
-//{pin, setup, idle, value},
-  { 0,   0,   0, 0}, // channel 0 not used
-  { 9,  80, 100, 0}, // PWM output pin for DMX channel 1, Red Light.
-  { 6,   0, 200, 0}, // PWM output pin for DMX channel 2, Green Light.
-  { 5,   0, 255, 0}, // PWM output pin for DMX channel 3, Blue Light.
+//{pin, initial value, idle},
+  { 0,   0,   0}, // channel 0 not used
+  { 9,  80, 100}, // PWM output pin for DMX channel 1, Red Light.
+  { 6,   0, 200}, // PWM output pin for DMX channel 2, Green Light.
+  { 5,   0, 255}, // PWM output pin for DMX channel 3, Blue Light.
 };
 
 #define channel_count (sizeof(channel)/sizeof(*channel))
 
 // calls analogWrite if the value changed since the last write
-static void setOutput(int i, uint8_t value)
+// if force always write
+static void setOutput(int i, uint8_t value, bool force=false)
 {
-  if(channel[i].value != value)
+  if(channel[i].value != value || force)
   {
     analogWrite(channel[i].pin, value);
     channel[i].value = value;
@@ -58,10 +57,8 @@ void setup () {
   // set some default values
   for(unsigned int i=1; i<channel_count; ++i)
   {
-    DMXSerial.write(i, channel[i].setup);
-    // set to a value other than setup, so the setup write will go out
-    channel[i].value = !channel[i].setup;
-    setOutput(i, channel[i].setup);
+    DMXSerial.write(i, channel[i].value);
+    setOutput(i, channel[i].value, true);
   }
 }
 
