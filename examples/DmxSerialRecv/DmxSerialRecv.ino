@@ -21,28 +21,49 @@
 
 // Constants for demo program
 
-const int RedPin =    9;  // PWM output pin for Red Light.
-const int GreenPin =  6;  // PWM output pin for Green Light.
-const int BluePin =   5;  // PWM output pin for Blue Light.
+struct Channel {
+  // output pin
+  uint8_t pin;
+  // initial value output when in setup
+  uint8_t setup;
+  // value to use when no messages have been received
+  uint8_t idle;
+  // written value
+  uint8_t value;
+};
 
-#define RedDefaultLevel   100
-#define GreenDefaultLevel 200
-#define BlueDefaultLevel  255
+Channel channel[] = {
+//{pin, setup, idle, value},
+  { 0,   0,   0, 0}, // channel 0 not used
+  { 9,  80, 100, 0}, // PWM output pin for DMX channel 1, Red Light.
+  { 6,   0, 200, 0}, // PWM output pin for DMX channel 2, Green Light.
+  { 5,   0, 255, 0}, // PWM output pin for DMX channel 3, Blue Light.
+};
+
+#define channel_count (sizeof(channel)/sizeof(*channel))
+
+// calls analogWrite if the value changed since the last write
+static void setOutput(int i, uint8_t value)
+{
+  if(channel[i].value != value)
+  {
+    analogWrite(channel[i].pin, value);
+    channel[i].value = value;
+  }
+}
 
 void setup () {
   DMXSerial.init(DMXReceiver);
   
   // set some default values
-  DMXSerial.write(1, 80);
-  DMXSerial.write(2, 0);
-  DMXSerial.write(3, 0);
-  
-  // enable pwm outputs
-  pinMode(RedPin,   OUTPUT); // sets the digital pin as output
-  pinMode(GreenPin, OUTPUT);
-  pinMode(BluePin,  OUTPUT);
+  for(unsigned int i=1; i<channel_count; ++i)
+  {
+    DMXSerial.write(i, channel[i].setup);
+    // set to a value other than setup, so the setup write will go out
+    channel[i].value = !channel[i].setup;
+    setOutput(i, channel[i].setup);
+  }
 }
-
 
 void loop() {
   // Calculate how long no data backet was received
@@ -50,15 +71,15 @@ void loop() {
   
   if (lastPacket < 5000) {
     // read recent DMX values and set pwm levels 
-    analogWrite(RedPin,   DMXSerial.read(1));
-    analogWrite(GreenPin, DMXSerial.read(2));
-    analogWrite(BluePin,  DMXSerial.read(3));
+    for(unsigned int i=1; i<channel_count; ++i) {
+      setOutput(i, DMXSerial.read(i));
+    }
 
   } else {
     // Show pure red color, when no data was received since 5 seconds or more.
-    analogWrite(RedPin,   RedDefaultLevel);
-    analogWrite(GreenPin, GreenDefaultLevel);
-    analogWrite(BluePin,  BlueDefaultLevel);
+    for(unsigned int i=1; i<channel_count; ++i) {
+      setOutput(i, channel[i].idle);
+    }
   } // if
 }
 
